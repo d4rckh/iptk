@@ -98,7 +98,7 @@ fn main() {
     println!("-- VLSM Stats --");
 
     let p_susage: f64 = total_needed_hosts as f64 / max_hosts as f64 * 100.0;
-    let p_nusage: f64 = total_needed_hosts as f64 / hosts as f64 * 100.0;
+    let p_nusage: f64 = max_hosts as f64 / hosts as f64 * 100.0;
 
     println!("Total Needed Hosts: {total_needed_hosts}");
     println!("Max Hosts Available: {max_hosts}");
