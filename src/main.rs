@@ -1,22 +1,7 @@
+mod net;
+
 use std::env;
-
-fn parse_ip4(ip: &str) -> u32 {
-  let ip_octets: Vec<_> = ip.split(".").map(|s| s.parse::<u32>().unwrap()).collect();
-
-  if ip_octets.len() != 4 {
-    panic!("IPv4 must have 4 octets");
-  }
-
-  (ip_octets.get(0).unwrap() << 24) + 
-  (ip_octets.get(1).unwrap() << 16) + 
-  (ip_octets.get(2).unwrap() << 8) + 
-  ip_octets.get(3).unwrap()
-}
-
-fn dec_to_ip4(dec: u32) -> String {
-  [ (dec >> 24) & 255, (dec >> 16) & 255, (dec >> 8) & 255, dec & 255 ]
-    .iter().map(|c| c.to_string()).collect::<Vec<String>>().join(".")
-}
+use net::{IPv4, Networkv4};
 
 fn get_power2(n: u32) -> u32 {
   let mut e = 0;
@@ -35,29 +20,30 @@ fn main() {
   args.next(); // skip first arg
 
   let command = args.next().expect("Provide a command");
+  let ip_arg = args.next().expect("Provide an IP address.");
 
-  let ip4 = args.next().expect("Provide an IP address.");
-  let mask = args.next().expect("Provide a network mask.");
+  let network = 
+    if ip_arg.contains("/") {
+      let ip_split = ip_arg.split("/").collect::<Vec<&str>>();
+      let ip = IPv4::from_str(ip_split.get(0).unwrap());
+      let mask = IPv4::from_mask(ip_split.get(1).unwrap().parse::<u32>().unwrap());
 
-  let ipdec = parse_ip4(ip4.as_str());
-  let maskdec = parse_ip4(mask.as_str());
+      Networkv4::from_ip(ip, mask)
+    } else {
+      let mask_arg = args.next().expect("Provide a subnet mask or use slash notation with the IP address.");
+      let ip = IPv4::from_str(ip_arg.as_str());
+      let mask = IPv4::from_str(mask_arg.as_str());
 
-  let niddec = ipdec & maskdec;
-  let broadcastdec = ipdec | !maskdec;
-  let nid = dec_to_ip4(niddec);
-  let broadcast = dec_to_ip4(broadcastdec);
-  let hosts = broadcastdec - niddec - 1; 
-
-  if command == "ip4" || command == "vlsm" {
-
-    println!("IP:   {ip4}");
-    println!("Mask: {mask}");
-
-    println!("-- Network Information --");
-    println!("Network Id:  {nid}");
-    println!("Broadcast:   {broadcast}");
-    println!("Hosts:       {hosts}");
+      Networkv4::from_ip(ip, mask)
+    };
   
+  if command == "ip4" || command == "vlsm" {
+    println!("-- Network Information --");
+    println!("Id:          {}  \t{0:b}", network.id);
+    println!("Broadcast:   {}  \t{0:b}", network.broadcast);
+    println!("Mask:        {}  \t{0:b}", network.mask);
+    println!("Wildcard:    {}  \t{0:b}", network.wildcard);
+    println!("Hosts:       {}", network.hosts);
   } 
   
   if command == "vlsm" {
@@ -72,33 +58,31 @@ fn main() {
     vlsm_sizes.sort();
     vlsm_sizes.reverse();
 
-    let mut last_niddec = niddec;
+    let mut next_network_id = network.id;
 
     for vlsm_size in vlsm_sizes {
-      let mask = 32 - get_power2(vlsm_size + 2);
-      let shosts = u32::pow(2, 32 - mask) - 2;
-      let niddec = last_niddec;
-      let broadcastdec = niddec + shosts + 1;
-      let nid = dec_to_ip4(niddec);
-      let bc = dec_to_ip4(broadcastdec);
+      let mask_size = 32 - get_power2(vlsm_size + 2);
+      let subnet = Networkv4::from_ip(next_network_id, IPv4::from_mask(mask_size));
 
-      if max_hosts + shosts > hosts {
+      if max_hosts + subnet.hosts > network.hosts {
         println!("-> couldn't finish subnetting: not enough space");
         break;
       }
 
       total_needed_hosts += vlsm_size;
-      max_hosts += shosts;
+      max_hosts += subnet.hosts;
 
-      println!("Needed Size: {vlsm_size}; Actual Size: {shosts}; {nid}/{mask} => {bc}/{mask}");
+      println!("Needed Size: {vlsm_size}; Actual Size: {}; {}/{} => {}/{}",
+        subnet.hosts, subnet.id, mask_size, subnet.broadcast, mask_size
+      );
 
-      last_niddec = broadcastdec + 1;
+      next_network_id = subnet.broadcast + 1;
     }
 
     println!("-- VLSM Stats --");
 
     let p_susage: f64 = total_needed_hosts as f64 / max_hosts as f64 * 100.0;
-    let p_nusage: f64 = max_hosts as f64 / hosts as f64 * 100.0;
+    let p_nusage: f64 = max_hosts as f64 / network.hosts as f64 * 100.0;
 
     println!("Total Needed Hosts: {total_needed_hosts}");
     println!("Max Hosts Available: {max_hosts}");

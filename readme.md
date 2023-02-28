@@ -7,6 +7,7 @@ cargo build
 ## usage
 ```bash
 iptk ip4 192.168.1.1 255.255.255.0
+# or iptk ip4 192.168.1.1/24
 
 # output:
 
@@ -19,6 +20,7 @@ iptk ip4 192.168.1.1 255.255.255.0
 ```
 ```bash
 iptk vlsm 10.0.0.0 255.255.0.0 100 200 300 400
+# or iptk vlsm 10.0.0.0/16 100 200 300 400
 
 # output:
 
