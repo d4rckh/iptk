@@ -30,7 +30,6 @@ fn main() {
     println!("Parsed Ip:  {}", ip);
     println!("-- Network Information --");
     println!("Id:         {}", network.id);
-    println!("Broadcast:  {}", network.broadcast);
     println!("Mask:       {}", network.mask);
   }
 
