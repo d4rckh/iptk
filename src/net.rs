@@ -1,10 +1,132 @@
 use core::fmt;
 
 #[derive(Debug, Clone, Copy)]
+pub struct IPv6 {
+  pub dec: u128,
+}
+
+
+#[derive(Debug, Clone, Copy)]
+pub struct Networkv6 {
+  pub id: IPv6,
+  pub broadcast: IPv6,
+  pub mask: IPv6,
+  pub hosts: u128
+}
+
+impl Networkv6 {
+  pub fn from_ip(ip: IPv6, mask: u32) -> Networkv6 {
+    let mask = IPv6::from_mask(mask);
+    let broadcast = ip | !mask;
+    let id = ip & mask;
+    Networkv6 { 
+      id, broadcast, mask, 
+      hosts: broadcast.dec - id.dec - 1 
+    }
+  }
+}
+
+impl IPv6 {
+  pub fn from_mask(mask: u32) -> IPv6 {
+    IPv6::from_dec(!(u128::pow(2, 128 - mask) - 1))
+  }
+
+  pub fn from_str(str: &str) -> IPv6 {
+    let mut ip_hexs: Vec<&str> = vec![ ];
+    let ip_parts: Vec<&str> = str.split("::").collect();
+
+    let mut a: Vec<&str> = ip_parts.get(0).unwrap().split(":").map(|x| if x == "" { "0" } else { x }).collect();
+    let mut b: Vec<&str> = if ip_parts.len() > 1 {
+      ip_parts.get(1).unwrap().split(":").map(|x| if x == "" { "0" } else { x }).collect()
+    } else {
+      vec![ ]
+    };
+    
+
+    let mut fill_zeros = 8 - a.len() - b.len();
+    
+    ip_hexs.append(&mut a);
+    
+    while fill_zeros > 0 {
+      ip_hexs.push("0");
+      fill_zeros -= 1;
+    }
+
+    ip_hexs.append(&mut b);
+
+    let ip_dec_part: Vec<u128> = ip_hexs.iter().map(|&f| u128::from_str_radix(f, 16).unwrap()).collect();
+
+    IPv6::from_dec(
+      ( ip_dec_part.get(0).unwrap() << 112 ) +
+      ( ip_dec_part.get(1).unwrap() << 96 ) +
+      ( ip_dec_part.get(2).unwrap() << 80 ) +
+      ( ip_dec_part.get(3).unwrap() << 64 ) +
+      ( ip_dec_part.get(4).unwrap() << 48 ) +
+      ( ip_dec_part.get(5).unwrap() << 32 ) +
+      ( ip_dec_part.get(6).unwrap() << 16 ) +
+      ( ip_dec_part.get(7).unwrap() )
+    )  
+  }
+
+  pub fn from_dec(dec: u128) -> IPv6 {
+    IPv6 { dec }
+  }
+}
+
+impl fmt::Display for IPv6 {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", [
+      ( self.dec >> 112 ) & 65535,
+      ( self.dec >> 96 ) & 65535,
+      ( self.dec >> 80 ) & 65535,
+      ( self.dec >> 64 ) & 65535,
+      ( self.dec >> 48 ) & 65535,
+      ( self.dec >> 32 ) & 65535, 
+      ( self.dec >> 16 ) & 65535,
+      ( self.dec ) & 65535
+    ].map(|f| format!("{:x}", f)).join(":"))
+  }
+}
+
+impl std::ops::Add<u128> for IPv6 {
+  type Output = IPv6;
+  fn add(self, _rhs: u128) -> IPv6 { IPv6::from_dec(self.dec + _rhs) }
+}
+
+impl std::ops::Add<IPv6> for IPv6 {
+  type Output = IPv6;
+  fn add(self, _rhs: IPv6) -> IPv6 { IPv6::from_dec(self.dec + _rhs.dec) }
+}
+
+impl std::ops::Sub<u128> for IPv6 {
+  type Output = IPv6;
+  fn sub(self, _rhs: u128) -> IPv6 { IPv6::from_dec(self.dec - _rhs) }
+}
+
+impl std::ops::Sub<IPv6> for IPv6 {
+  type Output = IPv6;
+  fn sub(self, _rhs: IPv6) -> IPv6 { IPv6::from_dec(self.dec - _rhs.dec) }
+}
+
+impl std::ops::BitAnd<IPv6> for IPv6 {
+  type Output = IPv6;
+  fn bitand(self, _rhs: IPv6) -> IPv6 { IPv6::from_dec(self.dec & _rhs.dec) }
+}
+
+impl std::ops::BitOr<IPv6> for IPv6 {
+  type Output = IPv6;
+  fn bitor(self, _rhs: IPv6) -> IPv6 { IPv6::from_dec(self.dec | _rhs.dec) }
+}
+
+impl std::ops::Not for IPv6 {
+  type Output = IPv6;
+  fn not(self) -> IPv6 { IPv6::from_dec(!self.dec) }
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct IPv4 {
   pub dec: u32,
 }
-
 
 #[derive(Debug, Clone, Copy)]
 pub struct Networkv4 {
