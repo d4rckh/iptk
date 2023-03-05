@@ -11,24 +11,25 @@ pub struct Networkv6 {
   pub id: IPv6,
   pub broadcast: IPv6,
   pub mask: IPv6,
+  pub prefix_length: u32,
   pub hosts: u128
 }
 
 impl Networkv6 {
-  pub fn from_ip(ip: IPv6, mask: u32) -> Networkv6 {
-    let mask = IPv6::from_mask(mask);
+  pub fn from_ip(ip: IPv6, prefix_length: u32) -> Networkv6 {
+    let mask = IPv6::from_length(prefix_length);
     let broadcast = ip | !mask;
     let id = ip & mask;
     Networkv6 { 
-      id, broadcast, mask, 
+      id, broadcast, mask, prefix_length,
       hosts: broadcast.dec - id.dec - 1 
     }
   }
 }
 
 impl IPv6 {
-  pub fn from_mask(mask: u32) -> IPv6 {
-    IPv6::from_dec(!(u128::pow(2, 128 - mask) - 1))
+  pub fn from_length(prefix_length: u32) -> IPv6 {
+    IPv6::from_dec(!(u128::pow(2, 128 - prefix_length) - 1))
   }
 
   pub fn from_str(str: &str) -> IPv6 {
@@ -134,7 +135,9 @@ pub struct Networkv4 {
   pub broadcast: IPv4,
   pub mask: IPv4,
   pub wildcard: IPv4,
-  pub hosts: u32
+  pub hosts: u32,
+  pub needed_hosts: u32,
+  pub mask_size: u32
 }
 
 impl Networkv4 {
@@ -144,7 +147,8 @@ impl Networkv4 {
     Networkv4 { 
       id, broadcast, 
       wildcard: !mask, mask, 
-      hosts: broadcast.dec - id.dec - 1 
+      hosts: broadcast.dec - id.dec - 1,
+      needed_hosts: 0, mask_size: 0
     }
   }
 }

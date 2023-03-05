@@ -47,11 +47,14 @@ iptk vlsm 10.0.0.0/16 100 200 300 400
 ```bash
 iptk 6 fe80::3f1c:98c0:4c64:6b44
 
-# warning: it will always use a prefix length of /64 temporarily. (for now)
+# warning: if no prefix length is specified, it will use /64.
 # output:
 
-# Parsed Ip:  fe80:0:0:0:3f1c:98c0:4c64:6b44
+# -- IP Information --
+# Parsed Ip:  fe80:1:2:3:3f1c:98c0:4c64:6b44
+# Decimal:    338288525006491670079810373589789862724
 # -- Network Information --
-# Id:         fe80:0:0:0:0:0:0:0
+# Id:         fe80:1:2:3:0:0:0:0
 # Mask:       ffff:ffff:ffff:ffff:0:0:0:0
+# Hosts:      18446744073709551614
 ```

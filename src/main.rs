@@ -1,17 +1,9 @@
 mod net;
+mod vlsm;
 
 use std::env;
 use net::{IPv4, Networkv4, IPv6, Networkv6};
-
-fn get_power2(n: u32) -> u32 {
-  let mut e = 0;
-
-  while n > u32::pow(2, e) {
-    e += 1;
-  }
-
-  e
-}
+use vlsm::{VLSMIterator};
 
 fn main() {
 
@@ -24,13 +16,25 @@ fn main() {
   // IPv6
   if command == "ip6" || command == "ipv6" || command == "6" {
     let ip_arg = args.next().expect("Provide an IPv6 address.");
-    
-    let ip = IPv6::from_str(ip_arg.as_str());
-    let network = Networkv6::from_ip(ip, 64);
+    let ip_split = ip_arg.split("/").collect::<Vec<&str>>();
+    let ip = IPv6::from_str(ip_split.get(0).unwrap());
+
+    let network = 
+      if ip_split.len() == 1 {
+        Networkv6::from_ip(ip, 64)
+      } else {
+        let ip = IPv6::from_str(ip_split.get(0).unwrap());
+        let mask = ip_split.get(1).unwrap().parse::<u32>().expect("Provide a valid prefix length");
+        Networkv6::from_ip(ip, mask)  
+      };
+
+    println!("-- IP Information --");
     println!("Parsed Ip:  {}", ip);
+    println!("Decimal:    {}", ip.dec);
     println!("-- Network Information --");
     println!("Id:         {}", network.id);
     println!("Mask:       {}", network.mask);
+    println!("Hosts:      {}", network.hosts);
   }
 
   // IPv4 section
@@ -63,42 +67,26 @@ fn main() {
       
       println!("-- VLSM --");
 
-      let mut total_needed_hosts: u32 = 0;
-      let mut max_hosts: u32 = 0;
 
       let mut vlsm_sizes = args.map(|x| x.parse::<u32>().unwrap()).collect::<Vec<u32>>();
 
       vlsm_sizes.sort();
       vlsm_sizes.reverse();
 
-      let mut next_network_id = network.id;
+      let mut vlsm = VLSMIterator::new(network, vlsm_sizes);
 
-      for vlsm_size in vlsm_sizes {
-        let mask_size = 32 - get_power2(vlsm_size + 2);
-        let subnet = Networkv4::from_ip(next_network_id, IPv4::from_mask(mask_size));
-
-        if max_hosts + subnet.hosts > network.hosts {
-          println!("-> couldn't finish subnetting: not enough space");
-          break;
-        }
-
-        total_needed_hosts += vlsm_size;
-        max_hosts += subnet.hosts;
-
-        println!("Needed Hosts: {vlsm_size}; Actual Size: {}; {}/{} => {}/{}",
-          subnet.hosts, subnet.id, mask_size, subnet.broadcast, mask_size
-        );
-
-        next_network_id = subnet.broadcast + 1;
-      }
-
+      vlsm.by_ref().for_each(|subnet| 
+        println!("Needed Hosts: {}; Actual Size: {}; {}/{} => {}/{}",
+        subnet.needed_hosts, subnet.hosts, subnet.id, subnet.mask_size, subnet.broadcast, subnet.mask_size)
+      );
+      
       println!("-- VLSM Stats --");
 
-      let p_susage: f64 = total_needed_hosts as f64 / max_hosts as f64 * 100.0;
-      let p_nusage: f64 = max_hosts as f64 / network.hosts as f64 * 100.0;
+      let p_susage: f64 = vlsm.needed_hosts as f64 / vlsm.max_hosts as f64 * 100.0;
+      let p_nusage: f64 = vlsm.max_hosts as f64 / network.hosts as f64 * 100.0;
 
-      println!("Total Needed Hosts: {total_needed_hosts}");
-      println!("Max Hosts Available: {max_hosts}");
+      println!("Total Needed Hosts: {}", vlsm.needed_hosts);
+      println!("Max Hosts Available: {}", vlsm.max_hosts);
       println!("% subnet used: {:.1$}%", p_susage, 2);
       println!("% network used: {:.1$}%", p_nusage, 2);
 
